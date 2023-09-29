@@ -5,26 +5,34 @@
 
 #include "elevation_mapping_cupy/elevation_mapping_wrapper.hpp"
 
+// Pybind
+#include <pybind11/eigen.h>
+
+// PCL
+#include <pcl/common/projection_matrix.h>
+
+// ROS
+#include <ros/package.h>
+
 namespace elevation_mapping_cupy {
 
-ElevationMappingWrapper::ElevationMappingWrapper()
-: rclcpp::Node("elevation_mapping_wrapper") {}
+ElevationMappingWrapper::ElevationMappingWrapper() {}
 
-void ElevationMappingWrapper::initialize() {
+void ElevationMappingWrapper::initialize(ros::NodeHandle& nh) {
   // Add the elevation_mapping_cupy path to sys.path
   auto threading = py::module::import("threading");
   py::gil_scoped_acquire acquire;
 
   auto sys = py::module::import("sys");
   auto path = sys.attr("path");
-  std::string module_path = ament_index_cpp::get_package_share_directory("elevation_mapping_cupy");
+  std::string module_path = ros::package::getPath("elevation_mapping_cupy");
   module_path = module_path + "/script";
   path.attr("insert")(0, module_path);
 
   auto elevation_mapping = py::module::import("elevation_mapping_cupy.elevation_mapping");
   auto parameter = py::module::import("elevation_mapping_cupy.parameter");
   param_ = parameter.attr("Parameter")();
-  setParameters();
+  setParameters(nh);
   map_ = elevation_mapping.attr("ElevationMap")(param_);
 }
 
@@ -32,7 +40,7 @@ void ElevationMappingWrapper::initialize() {
  *  Load ros parameters into Parameter class.
  *  Search for the same name within the name space.
  */
-void ElevationMappingWrapper::setParameters() {
+void ElevationMappingWrapper::setParameters(ros::NodeHandle& nh) {
   // Get all parameters names and types.
   py::list paramNames = param_.attr("get_names")();
   py::list paramTypes = param_.attr("get_types")();
@@ -45,22 +53,22 @@ void ElevationMappingWrapper::setParameters() {
     std::string name = py::cast<std::string>(paramNames[i]);
     if (type == "float") {
       float param;
-      if (this->get_parameter(name, param)) {
+      if (nh.getParam(name, param)) {
         param_.attr("set_value")(name, param);
       }
     } else if (type == "str") {
       std::string param;
-      if (this->get_parameter(name, param)) {
+      if (nh.getParam(name, param)) {
         param_.attr("set_value")(name, param);
       }
     } else if (type == "bool") {
       bool param;
-      if (this->get_parameter(name, param)) {
+      if (nh.getParam(name, param)) {
         param_.attr("set_value")(name, param);
       }
     } else if (type == "int") {
       int param;
-      if (this->get_parameter(name, param)) {
+      if (nh.getParam(name, param)) {
         param_.attr("set_value")(name, param);
       }
     }
@@ -71,8 +79,8 @@ void ElevationMappingWrapper::setParameters() {
   map_n_ = static_cast<int>(round(map_length_ / resolution_));
   map_length_ = resolution_ * map_n_;  // get true length after rounding
 
-  enable_normal_ = this->declare_parameter("enable_normal", false);
-  enable_normal_color_ = this->declare_parameter("enable_normal_color", false);
+  nh.param<bool>("enable_normal", enable_normal_, false);
+  nh.param<bool>("enable_normal_color", enable_normal_color_, false);
 }
 
 void ElevationMappingWrapper::input(const pcl::PointCloud<pcl::PointXYZ>::Ptr& pointCloud, const RowMatrixXd& R, const Eigen::VectorXd& t,

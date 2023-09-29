@@ -12,23 +12,27 @@
 // Eigen
 #include <Eigen/Dense>
 
+
 // Pybind
 #include <pybind11/embed.h>  // everything needed for embedding
 
 // ROS
-#include <geometry_msgs/PolygonStamped.h>
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <std_srvs/Empty.h>
-#include <std_srvs/SetBool.h>
-#include <tf/transform_broadcaster.h>
-#include <tf/transform_listener.h>
-#include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h>
+#include <geometry_msgs/msg/polygon_stamped.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <std_srvs/srv/empty.hpp>
+#include <std_srvs/srv/set_bool.hpp>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
+#include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <std_msgs/msg/bool.hpp>
+#include <std_msgs/msg/empty.hpp>
+
 
 // Grid Map
-#include <grid_map_msgs/GetGridMap.h>
-#include <grid_map_msgs/GridMap.h>
+#include <grid_map_msgs/srv/get_grid_map.hpp>
+#include <grid_map_msgs/msg/grid_map.hpp>
 #include <grid_map_ros/grid_map_ros.hpp>
 
 // PCL
@@ -36,8 +40,8 @@
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-#include <elevation_map_msgs/CheckSafety.h>
-#include <elevation_map_msgs/Initialize.h>
+#include <elevation_map_msgs/srv/check_safety.hpp>
+#include <elevation_map_msgs/srv/initialize.hpp>
 
 #include "elevation_mapping_cupy/elevation_mapping_wrapper.hpp"
 
@@ -45,53 +49,59 @@ namespace py = pybind11;
 
 namespace elevation_mapping_cupy {
 
-class ElevationMappingNode {
+class ElevationMappingNode : public rclcpp::Node {
  public:
-  ElevationMappingNode(ros::NodeHandle& nh);
+  ElevationMappingNode();
 
  private:
   void readParameters();
   void setupMapPublishers();
-  void pointcloudCallback(const sensor_msgs::PointCloud2& cloud);
+  void pointcloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr cloud);
   void publishAsPointCloud(const grid_map::GridMap& map) const;
-  bool getSubmap(grid_map_msgs::GetGridMap::Request& request, grid_map_msgs::GetGridMap::Response& response);
-  bool checkSafety(elevation_map_msgs::CheckSafety::Request& request, elevation_map_msgs::CheckSafety::Response& response);
-  bool initializeMap(elevation_map_msgs::Initialize::Request& request, elevation_map_msgs::Initialize::Response& response);
-  bool clearMap(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
-  bool clearMapWithInitializer(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
-  bool setPublishPoint(std_srvs::SetBool::Request& request, std_srvs::SetBool::Response& response);
-  void updatePose(const ros::TimerEvent&);
-  void updateVariance(const ros::TimerEvent&);
-  void updateTime(const ros::TimerEvent&);
-  void updateGridMap(const ros::TimerEvent&);
+  bool getSubmap(grid_map_msgs::srv::GetGridMap::Request::SharedPtr request, grid_map_msgs::srv::GetGridMap::Response::SharedPtr response);
+  bool checkSafety(elevation_map_msgs::srv::CheckSafety::Request::SharedPtr request, elevation_map_msgs::srv::CheckSafety::Response::SharedPtr response);
+  bool initializeMap(elevation_map_msgs::srv::Initialize::Request::SharedPtr request, elevation_map_msgs::srv::Initialize::Response::SharedPtr response);
+  bool clearMap(std_srvs::srv::Empty::Request::SharedPtr request, std_srvs::srv::Empty::Response::SharedPtr response);
+  bool clearMapWithInitializer(std_srvs::srv::Empty::Request::SharedPtr request, std_srvs::srv::Empty::Response::SharedPtr response);
+  bool setPublishPoint(std_srvs::srv::SetBool::Request::SharedPtr request, std_srvs::srv::SetBool::Response::SharedPtr response);
+  void updatePose();
+  void updateVariance();
+  void updateTime();
+  void updateGridMap();
   void publishNormalAsArrow(const grid_map::GridMap& map) const;
   void initializeWithTF();
   void publishMapToOdom(double error);
-  void publishStatistics(const ros::TimerEvent&);
+  void publishStatistics();
   void publishMapOfIndex(int index);
+  visualization_msgs::msg::Marker vectorToArrowMarker(
+    const Eigen::Vector3d& start,
+    const Eigen::Vector3d& end,
+    const int id) const;
 
-  visualization_msgs::Marker vectorToArrowMarker(const Eigen::Vector3d& start, const Eigen::Vector3d& end, const int id) const;
-  ros::NodeHandle nh_;
-  std::vector<ros::Subscriber> pointcloudSubs_;
-  std::vector<ros::Publisher> mapPubs_;
-  tf::TransformBroadcaster tfBroadcaster_;
-  ros::Publisher alivePub_;
-  ros::Publisher pointPub_;
-  ros::Publisher normalPub_;
-  ros::Publisher statisticsPub_;
-  ros::ServiceServer rawSubmapService_;
-  ros::ServiceServer clearMapService_;
-  ros::ServiceServer clearMapWithInitializerService_;
-  ros::ServiceServer initializeMapService_;
-  ros::ServiceServer setPublishPointService_;
-  ros::ServiceServer checkSafetyService_;
-  ros::Timer updateVarianceTimer_;
-  ros::Timer updateTimeTimer_;
-  ros::Timer updatePoseTimer_;
-  ros::Timer updateGridMapTimer_;
-  ros::Timer publishStatisticsTimer_;
-  ros::Time lastStatisticsPublishedTime_;
-  tf::TransformListener transformListener_;
+
+  std::vector<rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr> pointcloudSubs_;
+  std::vector<rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr> mapPubs_;
+  // tf2_ros::TransformBroadcaster tfBroadcaster_;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr alivePub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointPub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr normalPub_;
+  rclcpp::Publisher<elevation_map_msgs::msg::Statistics>::SharedPtr statisticsPub_;
+  rclcpp::Service<grid_map_msgs::srv::GetGridMap>::SharedPtr rawSubmapService_;
+  rclcpp::Service<std_srvs::srv::Empty>::SharedPtr clearMapService_;
+  rclcpp::Service<std_srvs::srv::Empty>::SharedPtr clearMapWithInitializerService_;
+  rclcpp::Service<elevation_map_msgs::srv::Initialize>::SharedPtr initializeMapService_;
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr setPublishPointService_;
+  rclcpp::Service<elevation_map_msgs::srv::CheckSafety>::SharedPtr checkSafetyService_;
+  rclcpp::TimerBase::SharedPtr updateVarianceTimer_;
+  rclcpp::TimerBase::SharedPtr updateTimeTimer_;
+  rclcpp::TimerBase::SharedPtr updatePoseTimer_;
+  rclcpp::TimerBase::SharedPtr updateGridMapTimer_;
+  rclcpp::TimerBase::SharedPtr publishStatisticsTimer_;
+  rclcpp::Time lastStatisticsPublishedTime_;
+  // tf2_ros::Buffer transformListener_;
+  std::shared_ptr<tf2_ros::TransformListener> tfListener_;
+  std::shared_ptr<tf2_ros::Buffer> tfBuffer_;
   ElevationMappingWrapper map_;
   std::string mapFrameId_;
   std::string correctedMapFrameId_;
@@ -105,7 +115,7 @@ class ElevationMappingNode {
   std::set<std::string> map_layers_sync_;
   std::vector<double> map_fps_;
   std::set<double> map_fps_unique_;
-  std::vector<ros::Timer> mapTimers_;
+  std::vector<rclcpp::TimerBase::SharedPtr> mapTimers_;
 
   std::vector<std::string> initialize_frame_id_;
   std::vector<double> initialize_tf_offset_;

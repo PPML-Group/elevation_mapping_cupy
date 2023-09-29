@@ -6,22 +6,22 @@
 // Pybind
 #include <pybind11/embed.h>  // everything needed for embedding
 
-// ROS
-#include <ros/ros.h>
+// ROS 2 C++ Includes
+#include <rclcpp/rclcpp.hpp>
 
 #include "elevation_mapping_cupy/elevation_mapping_ros.hpp"
 
 int main(int argc, char** argv) {
-  ros::init(argc, argv, "elevation_mapping");
-  ros::NodeHandle nh("~");
+  rclcpp::init(argc, argv);
+  rclcpp::NodeOptions node_options;
+  auto node = std::make_shared<elevation_mapping_cupy::ElevationMappingNode>(node_options);
 
-  py::scoped_interpreter guard{};  // start the interpreter and keep it alive
-  elevation_mapping_cupy::ElevationMappingNode mapNode(nh);
-  py::gil_scoped_release release;
+  // Create a separate thread for the ROS 2 node
+  std::thread([&node]() {
+    rclcpp::spin(node);
+  }).detach();
 
-  // Spin
-  ros::AsyncSpinner spinner(1);  // Use n threads
-  spinner.start();
-  ros::waitForShutdown();
+  rclcpp::spin(node);
+  rclcpp::shutdown();
   return 0;
 }

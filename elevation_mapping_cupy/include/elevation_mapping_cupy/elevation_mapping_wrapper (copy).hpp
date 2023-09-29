@@ -10,45 +10,39 @@
 
 // Eigen
 #include <Eigen/Dense>
-#include <Eigen/Core>
 
 // Pybind
 #include <pybind11/embed.h>  // everything needed for embedding
-#include <pybind11/eigen.h>
 
-// ROS2
-#include <ament_index_cpp/get_package_share_directory.hpp>
-
-#include <rclcpp/rclcpp.hpp>
-#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
-#include <std_srvs/srv/empty.hpp>
-#include <tf2_ros/transform_listener.h>
+// ROS
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <ros/ros.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <std_srvs/Empty.h>
+#include <tf/transform_listener.h>
 
 // Grid Map
-#include <grid_map_msgs/srv/get_grid_map.hpp>
-#include <grid_map_msgs/msg/grid_map.hpp>
+#include <grid_map_msgs/GetGridMap.h>
+#include <grid_map_msgs/GridMap.h>
 #include <grid_map_ros/grid_map_ros.hpp>
-#include <grid_map_core/grid_map_core.hpp>
 
 // PCL
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <pcl/common/projection_matrix.h>
 
 namespace py = pybind11;
 
 namespace elevation_mapping_cupy {
 
-class ElevationMappingWrapper : public rclcpp::Node {
+class ElevationMappingWrapper {
  public:
   using RowMatrixXd = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
   using RowMatrixXf = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
   ElevationMappingWrapper();
 
-  void initialize();
+  void initialize(ros::NodeHandle& nh);
 
   void input(const pcl::PointCloud<pcl::PointXYZ>::Ptr& pointCloud, const RowMatrixXd& R, const Eigen::VectorXd& t,
              const double positionNoise, const double orientationNoise);
@@ -67,8 +61,7 @@ class ElevationMappingWrapper : public rclcpp::Node {
   void addNormalColorLayer(grid_map::GridMap& map);
 
  private:
-  void setParameters();
-  
+  void setParameters(ros::NodeHandle& nh);
   py::object map_;
   py::object param_;
   double resolution_;

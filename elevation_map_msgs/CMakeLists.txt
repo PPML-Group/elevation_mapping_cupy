@@ -1,31 +1,25 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.8)
 project(elevation_map_msgs)
 
-find_package(catkin REQUIRED)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-find_package(catkin REQUIRED COMPONENTS
-  geometry_msgs
-  message_generation
+# find dependencies
+find_package(ament_cmake REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(builtin_interfaces REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(action_msgs REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/Statistics.msg"
+  "srv/CheckSafety.srv"
+  "srv/Initialize.srv"
+  DEPENDENCIES builtin_interfaces geometry_msgs std_msgs action_msgs
 )
 
-add_message_files(
-  FILES
-  Statistics.msg
-)
+ament_export_dependencies(rosidl_default_runtime)
 
-## Generate services in the 'srv' folder
-add_service_files(
-  FILES
-  CheckSafety.srv
-  Initialize.srv
-)
-
-
-## Generate added messages and services with any dependencies listed here
-generate_messages(
-  DEPENDENCIES
-  geometry_msgs
-)
-
-catkin_package(
-)
+ament_package()
