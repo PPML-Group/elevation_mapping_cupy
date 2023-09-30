@@ -14,7 +14,7 @@
 
 // Pybind
 #include <pybind11/embed.h>  // everything needed for embedding
-// #include <pybind11/eigen.h>
+#include <pybind11/eigen.h>
 
 // ROS2
 #include <ament_index_cpp/get_package_share_directory.hpp>

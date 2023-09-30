@@ -6,6 +6,11 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 # find dependencies
+find_package(pybind11 CONFIG REQUIRED)
+MESSAGE( [MAIN] "Found pybind11 v${pybind11_VERSION}: ${pybind11_INCLUDE_DIRS}")
+MESSAGE( [Main] " pybind11_INCLUDE_DIRS = ${pybind11_INCLUDE_DIRS}")
+MESSAGE( [Main] " pybind11_LIBRARIES = ${pybind11_LIBRARIES}")
+
 find_package(Eigen3 REQUIRED)
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
@@ -31,15 +36,13 @@ find_package(ament_cmake_python REQUIRED)
 find_package(Python3 REQUIRED Development)
 find_package(Python3 REQUIRED Interpreter)
 find_package(PythonInterp 3 REQUIRED)
-find_package(PythonLibs 3 REQUIRED)
+# find_package(PythonLibs 3 REQUIRED)
 if(PYTHONLIBS_FOUND)
   message(STATUS "Using Python Libraries at: " ${PYTHON_LIBRARIES})
   message(STATUS "Using Python include directories at: " ${PYTHON_INCLUDE_DIRS})
 else()
   message(WARNING "Could not find Python Libraries")
 endif()
-
-# ament_python_install_package(${PROJECT_NAME})
 
 set(dependencies
   rclcpp
@@ -62,6 +65,7 @@ include_directories(
   include
   ${PYTHON_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
+  # ${pybind11_INCLUDE_DIRS} # 
 )
 
 add_library(elevation_mapping_ros
@@ -69,10 +73,25 @@ add_library(elevation_mapping_ros
     src/elevation_mapping_ros.cpp)
 
 ament_target_dependencies(elevation_mapping_ros ${dependencies})
-target_link_libraries(elevation_mapping_ros ${PYTHON_LIBRARIES} ${PYTHON_LIBRARIES})
-
+# target_link_libraries(elevation_mapping_ros ${PYTHON_LIBRARIES} pybind11::module pybind11::embed)
+target_link_libraries(elevation_mapping_ros ${PYTHON_LIBRARIES})
 add_executable(elevation_mapping_node src/elevation_mapping_node.cpp)
 target_link_libraries(elevation_mapping_node elevation_mapping_ros)
+
+# ament_python_install_package(${PROJECT_NAME})
+# install(PROGRAMS
+#   scripts/custom_kernels.py
+#   scripts/elevation_mapping.py
+#   scripts/map_initializer.py
+#   scripts/parameter.py
+#   scripts/traversability_filter.py
+#   scripts/traversability_polygon.py
+#   scripts/plugins/inpainting.py
+#   scripts/plugins/min_filter.py
+#   scripts/plugins/plugin_manager.py
+#   scripts/plugins/smooth_filter.py
+#   DESTINATION lib/${PROJECT_NAME}
+# )
 
 install(TARGETS 
   elevation_mapping_node 
@@ -83,6 +102,7 @@ install(TARGETS
 )
 
 install(DIRECTORY 
+  scripts
   launch 
   config
   DESTINATION share/${PROJECT_NAME})

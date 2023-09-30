@@ -13,7 +13,10 @@
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
+
+  py::scoped_interpreter guard{};  // start the interpreter and keep it alive
   auto node = std::make_shared<elevation_mapping_cupy::ElevationMappingNode>();
+  py::gil_scoped_release release;
 
   // Create a separate thread for the ROS 2 node
   // std::thread([&node]() {

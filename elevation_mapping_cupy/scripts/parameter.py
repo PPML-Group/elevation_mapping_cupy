@@ -59,8 +59,11 @@ class Parameter:
     position_noise_thresh: float = 0.1
     orientation_noise_thresh: float = 0.1
 
-    plugin_config_file: str = "config/plugin_config.yaml"
-    weight_file: str = "config/weights.dat"
+    # plugin_config_file: str = "config/plugin_config.yaml"
+    # weight_file: str = "config/weights.dat"
+    plugin_config_file: str = "install/elevation_mapping_cupy/share/elevation_mapping_cupy/config/plugin_config.yaml"
+    weight_file: str = "install/elevation_mapping_cupy/share/elevation_mapping_cupy/config/weights.dat"
+    
 
     initial_variance: float = 10.0
     initialized_variance: float = 10.0
