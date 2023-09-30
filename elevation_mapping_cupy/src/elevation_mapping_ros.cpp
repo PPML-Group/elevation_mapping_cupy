@@ -2,23 +2,9 @@
 // Copyright (c) 2022, Takahiro Miki. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 //
+#include <chrono>
 
 #include "elevation_mapping_cupy/elevation_mapping_ros.hpp"
-
-// Pybind
-#include <pybind11/eigen.h>
-
-// ROS
-#include <geometry_msgs/msg/point32.hpp>
-#include <ament_index_cpp/get_package_share_directory.hpp>
-#include <tf2_eigen/tf2_eigen.h>
-
-// PCL
-#include <pcl/common/projection_matrix.h>
-
-#include <elevation_map_msgs/msg/statistics.hpp>
-
-#include <chrono>
 
 namespace elevation_mapping_cupy {
 
@@ -33,11 +19,12 @@ ElevationMappingNode::ElevationMappingNode()
     enablePointCloudPublishing_(false),
     isGridmapUpdated_(false) {
     
-  tfBroadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);// ROS2构造TransformBroadcaster
-  tfListener_ = std::make_shared<tf2_ros::TransformListener>(this);
-  tfBuffer_ = std::make_shared<tf2_ros::Buffer>(tfListener_);
+  tfBroadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(*this);// ROS2构造TransformBroadcaster
+  tfBuffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+  tfListener_ = std::make_shared<tf2_ros::TransformListener>(*tfBuffer_);
 
-  map_.initialize();
+  map_.initialize(); // 存在问题，会报错
+  return; // test
   std::string pose_topic, map_frame;
   std::vector<std::string> pointcloud_topics;
   std::vector<std::string> map_topics;
@@ -45,13 +32,16 @@ ElevationMappingNode::ElevationMappingNode()
   bool enablePointCloudPublishing(false);
 
   // 
-  rclcpp::Parameter param;
-  if (this->get_parameter("publishers", param)) {
-    // auto publishers = param.as<YourPublisherType>(); // Replace YourPublisherType with the actual data type you expect.
-    // Now you have the 'publishers' variable with the parameter value.
-  } else {
-    RCLCPP_ERROR(this->get_logger(), "Failed to get 'publishers' parameter");
-  }
+  // rclcpp::Parameter publishers;
+  // if (this->get_parameter("publishers", publishers)) {
+  //   // auto publishers = param.as<YourPublisherType>(); // Replace YourPublisherType with the actual data type you expect.
+  //   // Now you have the 'publishers' variable with the parameter value.
+  // } else {
+  //   RCLCPP_ERROR(this->get_logger(), "Failed to get 'publishers' parameter");
+  // }
+  // // XmlRpc::XmlRpcValue publishers;
+  std::map<std::string, rclcpp::ParameterValue> publishers; // TODO:
+  this->get_parameters("publishers", publishers);
 
   pointcloud_topics = this->declare_parameter<std::vector<std::string>>("pointcloud_topics", {"points"});
   initialize_frame_id_ = this->declare_parameter<std::vector<std::string>>("initialize_frame_id", {"base"});
@@ -78,50 +68,72 @@ ElevationMappingNode::ElevationMappingNode()
   enablePointCloudPublishing_ = enablePointCloudPublishing;
 
   for (const auto& pointcloud_topic : pointcloud_topics) {
+    // auto sub = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+    //   pointcloud_topic, 1, &ElevationMappingNode::pointcloudCallback); // 必须用bind?
     auto sub = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-      pointcloud_topic, 1, &ElevationMappingNode::pointcloudCallback);
+    pointcloud_topic, 1, std::bind(&ElevationMappingNode::pointcloudCallback, this, std::placeholders::_1));
     pointcloudSubs_.push_back(sub);
   }
+  
 
   // register map publishers
-  for (auto itr = publishers.begin(); itr != publishers.end(); ++itr) {
-    // parse params
-    std::string topic_name = itr->first;
-    std::vector<std::string> layers_list;
-    std::vector<std::string> basic_layers_list;
-    auto layers = itr->second["layers"];
-    auto basic_layers = itr->second["basic_layers"];
-    double fps = itr->second["fps"];
+  // for (auto itr = publishers.begin(); itr != publishers.end(); ++itr) {
+  //   // parse params
+  //   std::string topic_name = itr->first;
+  //   std::vector<std::string> layers_list;
+  //   std::vector<std::string> basic_layers_list;
+  //   auto layers = itr->second["layers"];
+  //   auto basic_layers = itr->second["basic_layers"];
+  //   double fps = itr->second["fps"];
 
-    if (fps > updateGridMapFps) {
-      RCLCPP_WARN(
-          this->get_logger(),
-          "[ElevationMappingCupy] fps for topic %s is larger than map_acquire_fps (%f > %f). The topic data will be only updated at %f "
-          "fps.",
-          topic_name.c_str(), fps, updateGridMapFps, updateGridMapFps);
-    }
+  //   if (fps > updateGridMapFps) {
+  //     RCLCPP_WARN(
+  //         this->get_logger(),
+  //         "[ElevationMappingCupy] fps for topic %s is larger than map_acquire_fps (%f > %f). The topic data will be only updated at %f "
+  //         "fps.",
+  //         topic_name.c_str(), fps, updateGridMapFps, updateGridMapFps);
+  //   }
 
-    for (int32_t i = 0; i < layers.size(); ++i) {
-      layers_list.push_back(static_cast<std::string>(layers[i]));
-    }
+  //   for (int32_t i = 0; i < layers.size(); ++i) {
+  //     layers_list.push_back(static_cast<std::string>(layers[i]));
+  //   }
 
-    for (int32_t i = 0; i < basic_layers.size(); ++i) {
-      basic_layers_list.push_back(static_cast<std::string>(basic_layers[i]));
-    }
+  //   for (int32_t i = 0; i < basic_layers.size(); ++i) {
+  //     basic_layers_list.push_back(static_cast<std::string>(basic_layers[i]));
+  //   }
 
-    // make publishers
-    auto pub = this->create_publisher<grid_map_msgs::msg::GridMap>(
-        topic_name, 1);
-    mapPubs_.push_back(pub);
+  //   // make publishers
+  //   auto pub = this->create_publisher<grid_map_msgs::msg::GridMap>(
+  //       topic_name, 1);
+  //   mapPubs_.push_back(pub);
 
-    // register map layers
-    map_layers_.push_back(layers_list);
-    map_basic_layers_.push_back(basic_layers_list);
+  //   // register map layers
+  //   map_layers_.push_back(layers_list);
+  //   map_basic_layers_.push_back(basic_layers_list);
 
-    // register map fps
-    map_fps_.push_back(fps);
-    map_fps_unique_.insert(fps);
-  }
+  //   // register map fps
+  //   map_fps_.push_back(fps);
+  //   map_fps_unique_.insert(fps);
+  // }
+  // for (const auto& entry : publishers) {
+  //   const std::string& topic_name = entry.first;
+  //   const rclcpp::ParameterValue& param_value = entry.second;
+
+  //   if (param_value.get_type() != rclcpp::ParameterType::PARAMETER_STRING) {
+  //     // 这里可以处理错误，如果参数类型不是预期的 MAP 类型
+  //     RCLCPP_ERROR(this->get_logger(), "'publishers' parameter is not a map.");
+  //     continue;
+  //   }
+
+  //   // 获取 MAP 类型的参数值
+  //   const auto& param_map = param_value.get<std::map<std::string, rclcpp::ParameterValue>>();
+  //   const std::vector<std::string> layers = param_map.at("layers").get<std::vector<std::string>>();
+  //   const std::vector<std::string> basic_layers = param_map.at("basic_layers").get<std::vector<std::string>>();
+  //   const double fps = param_map.at("fps").get<double>();
+
+  //   // 这里可以使用获取到的参数值进行后续操作
+  //   RCLCPP_INFO(this->get_logger(), "Topic: %s, Layers: %f", topic_name.c_str(), layers, basic_layers, fps);
+  // }
   setupMapPublishers();
 
   pointPub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("elevation_map_points", 1);
@@ -203,7 +215,8 @@ void ElevationMappingNode::publishMapOfIndex(int index) {
   if (!isGridmapUpdated_) {
     return;
   }
-  grid_map_msgs::msg::GridMap msg;
+  // grid_map_msgs::msg::GridMap msg;
+  std::unique_ptr<grid_map_msgs::msg::GridMap> msg;
   std::vector<std::string> layers;
 
   {  // need continuous lock between adding layers and converting to message. Otherwise updateGridmap can reset the data not in
@@ -224,13 +237,11 @@ void ElevationMappingNode::publishMapOfIndex(int index) {
     if (layers.empty()) {
       return;
     }
-
-    grid_map::GridMapRosConverter::toMessage(gridMap_, layers, msg);
-    //  = grid_map::GridMapRosConverter::toMessage(gridMap_, layers);
+    // grid_map::GridMapRosConverter::toMessage(gridMap_, layers, msg);
+    msg = grid_map::GridMapRosConverter::toMessage(gridMap_, layers);
   }
-
-  msg.basic_layers = map_basic_layers_[index];
-  mapPubs_[index]->publish(msg);
+  msg->basic_layers = map_basic_layers_[index];
+  mapPubs_[index]->publish(*msg);
 }
 
 void ElevationMappingNode::pointcloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr cloud) {
@@ -250,7 +261,11 @@ void ElevationMappingNode::pointcloudCallback(const sensor_msgs::msg::PointCloud
   try {
     transformTf = tfBuffer_->lookupTransform(mapFrameId_, sensorFrameId, timeStamp);
     Eigen::Affine3d transformationSensorToMap;
-    tf2::fromMsg(transformTf.transform, transformationSensorToMap);
+    // Eigen::Isometry3d transformationSensorToMap;
+    // tf2::fromMsg(transformTf.transform, transformationSensorToMap);
+    // tf2::Transform tf2_transform;
+    // tf2::fromMsg(transformTf.transform, tf2_transform);
+    transformationSensorToMap = tf2::transformToEigen(transformTf);
     
     double positionError{0.0};
     double orientationError{0.0};
@@ -335,7 +350,8 @@ bool ElevationMappingNode::getSubmap(
     const auto& timeStamp = now();
     try {
       transformTf = tfBuffer_->lookupTransform(mapFrameId_, requestedFrameId, timeStamp);
-      tf2::fromMsg(transformTf.transform, transformationOdomToMap);
+      // tf2::fromMsg(transformTf.transform, transformationOdomToMap);
+      transformationOdomToMap = tf2::transformToEigen(transformTf);
     } catch (tf2::TransformException& ex) {
       RCLCPP_ERROR(this->get_logger(),"%s", ex.what());
       return false;
@@ -364,13 +380,13 @@ bool ElevationMappingNode::getSubmap(
   }
 
   if (request->layers.empty()) {
-    grid_map::GridMapRosConverter::toMessage(subMap, response->map);
+    response->map = *grid_map::GridMapRosConverter::toMessage(subMap);
   } else {
     std::vector<std::string> layers;
     for (const auto& layer : request->layers) {
       layers.push_back(layer);
     }
-    grid_map::GridMapRosConverter::toMessage(subMap, layers, response->map);
+    response->map = *grid_map::GridMapRosConverter::toMessage(subMap, layers);
   }
   return isSuccess;
 }
@@ -405,7 +421,8 @@ void ElevationMappingNode::initializeWithTF() {
     geometry_msgs::msg::TransformStamped transformTf;
     try {
       transformTf = tfBuffer_->lookupTransform(mapFrameId_, frame_id, timeStamp);
-      tf2::fromMsg(transformTf.transform, transformationBaseToMap);
+      // tf2::fromMsg(transformTf.transform, transformationBaseToMap);
+      transformationBaseToMap = tf2::transformToEigen(transformTf);
     } catch (tf2::TransformException& ex) {
       RCLCPP_ERROR(this->get_logger(),"%s", ex.what());
       return;
@@ -444,7 +461,8 @@ bool ElevationMappingNode::checkSafety(const elevation_map_msgs::srv::CheckSafet
       geometry_msgs::msg::TransformStamped transformTf;
       try {
         transformTf = tfBuffer_->lookupTransform(mapFrameId_, polygonFrameId, timeStamp);
-        tf2::fromMsg(transformTf.transform, transformationBaseToMap);
+        // tf2::fromMsg(transformTf.transform, transformationBaseToMap);
+        transformationBaseToMap = tf2::transformToEigen(transformTf);        
       } catch (tf2::TransformException& ex) {
         RCLCPP_ERROR(this->get_logger(),"%s", ex.what());
         return false;
@@ -545,7 +563,8 @@ bool ElevationMappingNode::initializeMap(
         geometry_msgs::msg::TransformStamped transformTf;
         try {
           transformTf = tfBuffer_->lookupTransform(mapFrameId_, pointFrameId, timeStamp);
-          tf2::fromMsg(transformTf.transform, transformationBaseToMap);
+          // tf2::fromMsg(transformTf.transform, transformationBaseToMap);
+          transformationBaseToMap = tf2::transformToEigen(transformTf);
         } catch (tf2::TransformException& ex) {
           RCLCPP_ERROR(this->get_logger(),"%s", ex.what());
           return false;

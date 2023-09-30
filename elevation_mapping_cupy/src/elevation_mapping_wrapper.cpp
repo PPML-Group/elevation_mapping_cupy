@@ -12,11 +12,14 @@ ElevationMappingWrapper::ElevationMappingWrapper()
 
 void ElevationMappingWrapper::initialize() {
   // Add the elevation_mapping_cupy path to sys.path
-  auto threading = py::module::import("threading");
-  py::gil_scoped_acquire acquire;
-
+  // auto threading = py::module::import("threading");
+  // // py::gil_scoped_acquire acquire;
+  
+  return; //test
   auto sys = py::module::import("sys");
   auto path = sys.attr("path");
+  
+  
   std::string module_path = ament_index_cpp::get_package_share_directory("elevation_mapping_cupy");
   module_path = module_path + "/script";
   path.attr("insert")(0, module_path);
@@ -36,7 +39,7 @@ void ElevationMappingWrapper::setParameters() {
   // Get all parameters names and types.
   py::list paramNames = param_.attr("get_names")();
   py::list paramTypes = param_.attr("get_types")();
-  py::gil_scoped_acquire acquire;
+  // py::gil_scoped_acquire acquire;
 
   // Try to find the parameter in the ros parameter server.
   // If there was a parameter, set it to the Parameter variable.
@@ -77,7 +80,7 @@ void ElevationMappingWrapper::setParameters() {
 
 void ElevationMappingWrapper::input(const pcl::PointCloud<pcl::PointXYZ>::Ptr& pointCloud, const RowMatrixXd& R, const Eigen::VectorXd& t,
                                     const double positionNoise, const double orientationNoise) {
-  py::gil_scoped_acquire acquire;
+  // py::gil_scoped_acquire acquire;
   RowMatrixXd points;
   pointCloudToMatrix(pointCloud, points);
   map_.attr("input")(Eigen::Ref<const RowMatrixXd>(points), Eigen::Ref<const RowMatrixXd>(R), Eigen::Ref<const Eigen::VectorXd>(t),
@@ -85,27 +88,27 @@ void ElevationMappingWrapper::input(const pcl::PointCloud<pcl::PointXYZ>::Ptr& p
 }
 
 void ElevationMappingWrapper::move_to(const Eigen::VectorXd& p) {
-  py::gil_scoped_acquire acquire;
+  // py::gil_scoped_acquire acquire;
   map_.attr("move_to")(Eigen::Ref<const Eigen::VectorXd>(p));
 }
 
 void ElevationMappingWrapper::clear() {
-  py::gil_scoped_acquire acquire;
+  // py::gil_scoped_acquire acquire;
   map_.attr("clear")();
 }
 
 double ElevationMappingWrapper::get_additive_mean_error() {
-  py::gil_scoped_acquire acquire;
+  // py::gil_scoped_acquire acquire;
   return map_.attr("get_additive_mean_error")().cast<double>();
 }
 
 bool ElevationMappingWrapper::exists_layer(const std::string& layerName) {
-  py::gil_scoped_acquire acquire;
+  // py::gil_scoped_acquire acquire;
   return py::cast<bool>(map_.attr("exists_layer")(layerName));
 }
 
 void ElevationMappingWrapper::get_layer_data(const std::string& layerName, RowMatrixXf& map) {
-  py::gil_scoped_acquire acquire;
+  // py::gil_scoped_acquire acquire;
   map = RowMatrixXf(map_n_, map_n_);
   map_.attr("get_map_with_name_ref")(layerName, Eigen::Ref<RowMatrixXf>(map));
 }
@@ -121,7 +124,7 @@ void ElevationMappingWrapper::get_grid_map(grid_map::GridMap& gridMap, const std
   }
 
   RowMatrixXd pos(1, 3);
-  py::gil_scoped_acquire acquire;
+  // py::gil_scoped_acquire acquire;
   map_.attr("get_position")(Eigen::Ref<RowMatrixXd>(pos));
   grid_map::Position position(pos(0, 0), pos(0, 1));
   grid_map::Length length(map_length_, map_length_);
@@ -160,7 +163,7 @@ void ElevationMappingWrapper::get_polygon_traversability(std::vector<Eigen::Vect
     polygon_m(i, 1) = p.y();
     i++;
   }
-  py::gil_scoped_acquire acquire;
+  // py::gil_scoped_acquire acquire;
   const int untraversable_polygon_num =
       map_.attr("get_polygon_traversability")(Eigen::Ref<const RowMatrixXf>(polygon_m), Eigen::Ref<Eigen::VectorXd>(result)).cast<int>();
 
@@ -186,7 +189,7 @@ void ElevationMappingWrapper::initializeWithPoints(std::vector<Eigen::Vector3d>&
     points_m(i, 2) = p.z();
     i++;
   }
-  py::gil_scoped_acquire acquire;
+  // py::gil_scoped_acquire acquire;
   map_.attr("initialize_map")(Eigen::Ref<const RowMatrixXd>(points_m), method);
 }
 
@@ -221,12 +224,12 @@ void ElevationMappingWrapper::addNormalColorLayer(grid_map::GridMap& map) {
 }
 
 void ElevationMappingWrapper::update_variance() {
-  py::gil_scoped_acquire acquire;
+  // py::gil_scoped_acquire acquire;
   map_.attr("update_variance")();
 }
 
 void ElevationMappingWrapper::update_time() {
-  py::gil_scoped_acquire acquire;
+  // py::gil_scoped_acquire acquire;
   map_.attr("update_time")();
 }
 

@@ -15,19 +15,31 @@
 
 // Pybind
 #include <pybind11/embed.h>  // everything needed for embedding
+#include <pybind11/eigen.h>
 
 // ROS
-#include <geometry_msgs/msg/polygon_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <geometry_msgs/msg/polygon_stamped.hpp>
+#include <geometry_msgs/msg/point32.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <std_srvs/srv/empty.hpp>
 #include <std_srvs/srv/set_bool.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+// #include <tf2/utils.h>
+// #include <tf2/tf2/convert.h>
+// #include <tf2/convert.h>
+// #include <tf2_geometry_msgs/tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include "tf2/convert.h"
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/empty.hpp>
+
+#include <ament_index_cpp/get_package_share_directory.hpp>
+#include <tf2_eigen/tf2_eigen.h>
 
 
 // Grid Map
@@ -39,9 +51,11 @@
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/common/projection_matrix.h>
 
 #include <elevation_map_msgs/srv/check_safety.hpp>
 #include <elevation_map_msgs/srv/initialize.hpp>
+#include <elevation_map_msgs/msg/statistics.hpp>
 
 #include "elevation_mapping_cupy/elevation_mapping_wrapper.hpp"
 
@@ -81,8 +95,7 @@ class ElevationMappingNode : public rclcpp::Node {
 
   std::vector<rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr> pointcloudSubs_;
   std::vector<rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr> mapPubs_;
-  // tf2_ros::TransformBroadcaster tfBroadcaster_;
-  std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
+  
   rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr alivePub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointPub_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr normalPub_;
@@ -100,6 +113,8 @@ class ElevationMappingNode : public rclcpp::Node {
   rclcpp::TimerBase::SharedPtr publishStatisticsTimer_;
   rclcpp::Time lastStatisticsPublishedTime_;
   // tf2_ros::Buffer transformListener_;
+  // tf2_ros::TransformBroadcaster tfBroadcaster_;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
   std::shared_ptr<tf2_ros::TransformListener> tfListener_;
   std::shared_ptr<tf2_ros::Buffer> tfBuffer_;
   ElevationMappingWrapper map_;

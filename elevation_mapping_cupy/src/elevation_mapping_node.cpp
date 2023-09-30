@@ -13,13 +13,12 @@
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
-  rclcpp::NodeOptions node_options;
-  auto node = std::make_shared<elevation_mapping_cupy::ElevationMappingNode>(node_options);
+  auto node = std::make_shared<elevation_mapping_cupy::ElevationMappingNode>();
 
   // Create a separate thread for the ROS 2 node
-  std::thread([&node]() {
-    rclcpp::spin(node);
-  }).detach();
+  // std::thread([&node]() {
+  //   rclcpp::spin(node);
+  // }).detach();
 
   rclcpp::spin(node);
   rclcpp::shutdown();
