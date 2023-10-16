@@ -12,5 +12,6 @@ def generate_launch_description():
             name='elevation_mapping',
             output='screen',
             parameters=[{'file': '$(find elevation_mapping_cupy)/config/parameters.yaml'}],
+            
         ),
     ])
